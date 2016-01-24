@@ -63,6 +63,7 @@ trait CodeGeneration {
 
   private[codegen] val JavaListClass             = "java/util/List"
   private[codegen] val JavaIteratorClass         = "java/util/Iterator"
+  private[codegen] val JavaStringClass           = "java/lang/String"
 
   private[codegen] val TupleClass                = "leon/codegen/runtime/Tuple"
   private[codegen] val SetClass                  = "leon/codegen/runtime/Set"
@@ -83,6 +84,7 @@ trait CodeGeneration {
   private[codegen] val GenericValuesClass        = "leon/codegen/runtime/GenericValues"
   private[codegen] val MonitorClass              = "leon/codegen/runtime/LeonCodeGenRuntimeMonitor"
   private[codegen] val HenkinClass               = "leon/codegen/runtime/LeonCodeGenRuntimeHenkinMonitor"
+  private[codegen] val StrOpsClass               = "leon/codegen/runtime/StrOps"
 
   def idToSafeJVMName(id: Identifier) = {
     scala.reflect.NameTransformer.encode(id.uniqueName).replaceAll("\\.", "\\$")
@@ -137,6 +139,9 @@ trait CodeGeneration {
 
     case TypeParameter(_) =>
       "L" + ObjectClass + ";"
+    
+    case StringType =>
+      "L" + JavaStringClass + ";"
 
     case _ => throw CompilationException("Unsupported type : " + tpe)
   }
@@ -818,6 +823,9 @@ trait CodeGeneration {
 
       case UnitLiteral() =>
         ch << Ldc(1)
+      
+      case StringLiteral(v) =>
+        ch << Ldc(v)
 
       case InfiniteIntegerLiteral(v) =>
         ch << New(BigIntClass) << DUP
@@ -979,7 +987,11 @@ trait CodeGeneration {
             mkUnbox(tpe, ch)
           case _ =>
         }
-
+        
+      case FunctionInvocation(TypedFunDef(fd, Nil), Seq(a)) if fd == program.library.escape.get =>
+        mkExpr(a, ch)
+        ch << InvokeStatic(StrOpsClass, "escape", s"(L$JavaStringClass;)L$JavaStringClass;")
+        
       case FunctionInvocation(TypedFunDef(fd, Seq(tp)), Seq(set)) if fd == program.library.setToList.get =>
 
         val nil = CaseClass(CaseClassType(program.library.Nil.get, Seq(tp)), Seq())
@@ -1159,6 +1171,38 @@ trait CodeGeneration {
       case f @ Forall(args, body) =>
         mkForall(args.map(_.id).toSet, body, ch)
 
+      // String processing =>
+      case StringConcat(l, r) =>
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        ch << InvokeStatic(StrOpsClass, "concat", s"(L$JavaStringClass;L$JavaStringClass;)L$JavaStringClass;")
+        
+      case StringLength(a) =>
+        mkExpr(a, ch)
+        ch << InvokeStatic(StrOpsClass, "length", s"(L$JavaStringClass;)L$BigIntClass;")
+        
+      case Int32ToString(a) =>
+        mkExpr(a, ch)
+        ch << InvokeStatic(StrOpsClass, "intToString", s"(I)L$JavaStringClass;")
+      case BooleanToString(a) =>
+        mkExpr(a, ch)
+        ch << InvokeStatic(StrOpsClass, "booleanToString", s"(Z)L$JavaStringClass;")
+      case IntegerToString(a) =>
+        mkExpr(a, ch)
+        ch << InvokeStatic(StrOpsClass, "bigIntToString", s"(L$BigIntClass;)L$JavaStringClass;")
+      case CharToString(a) =>
+        mkExpr(a, ch)
+        ch << InvokeStatic(StrOpsClass, "charToString", s"(C)L$JavaStringClass;")
+      case RealToString(a) =>
+        mkExpr(a, ch)
+        ch << InvokeStatic(StrOpsClass, "realToString", s"(L$RealClass;)L$JavaStringClass;")
+        
+      case SubString(a, start, end) =>
+        mkExpr(a, ch)
+        mkExpr(start, ch)
+        mkExpr(end, ch)
+        ch << InvokeStatic(StrOpsClass, "substring", s"(L$JavaStringClass;L$BigIntClass;L$BigIntClass;)L$JavaStringClass;")
+        
       // Arithmetic
       case Plus(l, r) =>
         mkExpr(l, ch)
@@ -1487,6 +1531,9 @@ trait CodeGeneration {
 
       case IntegerType =>
         ch << CheckCast(BigIntClass)
+
+      case StringType =>
+        ch << CheckCast(JavaStringClass)
 
       case RealType =>
         ch << CheckCast(RationalClass)

@@ -4,10 +4,13 @@ package leon.verification
 
 import leon.purescala.Expressions._
 import leon.purescala.Definitions._
+import leon.purescala.Types._
 import leon.purescala.PrettyPrinter
 import leon.utils.Positioned
-
+import leon.evaluators.StringTracingEvaluator
 import leon.solvers._
+import leon.LeonContext
+import leon.purescala.SelfPrettyPrinter
 
 /** This is just to hold some history information. */
 case class VC(condition: Expr, fd: FunDef, kind: VCKind) extends Positioned {
@@ -60,7 +63,8 @@ case class VCResult(status: VCStatus, solvedWith: Option[Solver], timeMs: Option
         // large arrays faithfully in ScalaPrinter is hard, while PrettyPrinter
         // is free to simplify
         val strings = cex.toSeq.sortBy(_._1.name).map {
-          case (id, v) => (id.asString(context), PrettyPrinter(v))
+          case (id, v) =>
+            (id.asString(context), SelfPrettyPrinter.print(v, PrettyPrinter(v))(vctx.context, vctx.program))
         }
 
         if (strings.nonEmpty) {
@@ -92,4 +96,5 @@ object VCStatus {
   case object Unknown extends VCStatus("unknown")
   case object Timeout extends VCStatus("timeout")
   case object Cancelled extends VCStatus("cancelled")
+  case object Crashed extends VCStatus("crashed")
 }

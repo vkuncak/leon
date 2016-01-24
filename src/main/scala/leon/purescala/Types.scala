@@ -51,6 +51,7 @@ object Types {
 
   abstract class BitVectorType(val size: Int) extends TypeTree
   case object Int32Type extends BitVectorType(32)
+  case object StringType extends TypeTree
 
   class TypeParameter private (name: String) extends TypeTree {
     val id = FreshIdentifier(name, this)
@@ -115,7 +116,7 @@ object Types {
 
     def knownDescendants = classDef.knownDescendants.map( _.typed(tps) )
 
-    def knownCCDescendants = classDef.knownCCDescendants.map( _.typed(tps) )
+    def knownCCDescendants: Seq[CaseClassType] = classDef.knownCCDescendants.map( _.typed(tps) )
 
     lazy val fieldsTypes = fields.map(_.getType)
 

@@ -19,9 +19,10 @@ import Types._
   *  */
 object Constructors {
 
-  /** If `isTuple`, the whole expression is returned. This is to avoid a situation like
-    * `tupleSelect(tupleWrap(Seq(Tuple(x,y))),1) -> x`, which is not expected.
-    * Instead,
+  /** If `isTuple`:
+    * `tupleSelect(tupleWrap(Seq(Tuple(x,y))),1) -> x`
+    * `tupleSelect(tupleExpr,1) -> tupleExpr._1`
+    * If not `isTuple` (usually used only in the case of a tuple of arity 1)
     * `tupleSelect(tupleWrap(Seq(Tuple(x,y))),1) -> Tuple(x,y)`.
     * @see [[purescala.Expressions.TupleSelect]]
     */
@@ -144,7 +145,7 @@ object Constructors {
 
     resType match {
       case Some(tpe) =>
-        casesFiltered.filter(c => isSubtypeOf(c.rhs.getType, tpe) || isSubtypeOf(tpe, c.rhs.getType))
+        casesFiltered.filter(c => typesCompatible(c.rhs.getType, tpe))
       case None =>
         casesFiltered
     }
@@ -280,7 +281,27 @@ object Constructors {
     if (a == b && isDeterministic(a)) {
       BooleanLiteral(true)
     } else  {
-      Equals(a, b)
+      (a, b) match {
+        case (a: Literal[_], b: Literal[_]) =>
+          if (a.value == b.value) {
+            BooleanLiteral(true)
+          } else {
+            BooleanLiteral(false)
+          }
+
+        case _ =>
+          Equals(a, b)
+      }
+    }
+  }
+
+  def assertion(c: Expr, err: Option[String], res: Expr) = {
+    if (c == BooleanLiteral(true)) {
+      res
+    } else if (c == BooleanLiteral(false)) {
+      Error(res.getType, err.getOrElse("Assertion failed"))
+    } else {
+      Assert(c, err, res)
     }
   }
 

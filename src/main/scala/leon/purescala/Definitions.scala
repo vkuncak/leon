@@ -84,6 +84,10 @@ object Definitions {
 
     def lookupAll(name: String)  = DefOps.searchWithin(name, this)
     def lookup(name: String)     = lookupAll(name).headOption
+    
+    def lookupCaseClass(name: String) = lookupAll(name).collect{ case c: CaseClassDef => c }.headOption
+    def lookupAbstractClass(name: String) = lookupAll(name).collect{ case c: AbstractClassDef => c }.headOption
+    def lookupFunDef(name: String) = lookupAll(name).collect{ case c: FunDef => c }.headOption
   }
 
   object Program {
@@ -110,6 +114,7 @@ object Definitions {
     }
   }
   
+  /** Object definition */
   case class UnitDef(
     id: Identifier,
     pack : PackageRef,
@@ -204,8 +209,8 @@ object Definitions {
   // If this class was a method. owner is the original owner of the method
   case class IsMethod(owner: ClassDef) extends FunctionFlag
   // If this function represents a loop that was there before XLangElimination
-  // Contains a copy of the original looping function
-  case class IsLoop(orig: FunDef) extends FunctionFlag
+  // Contains a link to the FunDef where the loop was defined
+  case class IsLoop(owner: FunDef) extends FunctionFlag
   // If extraction fails of the function's body fais, it is marked as abstract
   case object IsAbstract extends FunctionFlag
   // Currently, the only synthetic functions are those that calculate default values of parameters

@@ -12,6 +12,8 @@ import purescala.Extractors._
 import purescala.Constructors._
 import purescala.Definitions._
 
+/** Abstract data type split. If a variable is typed as an abstract data type, then
+  * it will create a match case statement on all known subtypes. */
 case object ADTSplit extends Rule("ADT Split.") {
   def instantiateOn(implicit hctx: SearchContext, p: Problem): Traversable[RuleInstantiation] = {
     // We approximate knowledge of types based on facts found at the top-level

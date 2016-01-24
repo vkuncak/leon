@@ -5,6 +5,7 @@ package synthesis
 package graph
 
 import leon.utils.StreamUtils.cartesianProduct
+import leon.utils.DebugSectionSynthesis
 
 sealed class Graph(val cm: CostModel, problem: Problem) {
   val root = new RootNode(cm, problem)
@@ -97,6 +98,11 @@ sealed abstract class Node(cm: CostModel, val parent: Option[Node]) {
   }
 }
 
+/** Represents the conjunction of search nodes.
+  * @param cm The cost model used when prioritizing, evaluating and expanding
+  * @param parent Some node. None if it is the root node.
+  * @param ri The rule instantiation that created this AndNode.
+  **/
 class AndNode(cm: CostModel, parent: Option[Node], val ri: RuleInstantiation) extends Node(cm, parent) {
   val p = ri.problem
 
@@ -176,13 +182,17 @@ class OrNode(cm: CostModel, parent: Option[Node], val p: Problem) extends Node(c
 
   override def asString(implicit ctx: LeonContext) = "\u2228 "+p.asString
 
+  implicit val debugSection = DebugSectionSynthesis
+  
   def getInstantiations(hctx: SearchContext): List[RuleInstantiation] = {
     val rules = hctx.sctx.rules
 
     val rulesPrio = rules.groupBy(_.priority).toSeq.sortBy(_._1)
 
     for ((_, rs) <- rulesPrio) {
+      
       val results = rs.flatMap{ r =>
+        hctx.context.reporter.ifDebug(printer => printer("Testing rule: " + r))
         hctx.context.timers.synthesis.instantiations.get(r.asString(hctx.sctx.context)).timed {
           r.instantiateOn(hctx, p)
         }

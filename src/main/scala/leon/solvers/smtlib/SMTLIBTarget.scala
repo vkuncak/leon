@@ -32,6 +32,7 @@ import _root_.smtlib.parser.Terms.{
 }
 import _root_.smtlib.parser.CommandsResponses.{ Error => ErrorResponse, _ }
 import _root_.smtlib.theories._
+import _root_.smtlib.theories.experimental._
 import _root_.smtlib.interpreters.ProcessInterpreter
 
 trait SMTLIBTarget extends Interruptible {
@@ -538,10 +539,8 @@ trait SMTLIBTarget extends Interruptible {
        * ===== Everything else =====
        */
       case ap @ Application(caller, args) =>
-        FunctionApplication(
-          declareLambda(caller.getType.asInstanceOf[FunctionType]),
-          (caller +: args).map(toSMT)
-        )
+        val dyn = declareLambda(caller.getType.asInstanceOf[FunctionType])
+        FunctionApplication(dyn, (caller +: args).map(toSMT))
 
       case Not(u)          => Core.Not(toSMT(u))
       case UMinus(u)       => Ints.Neg(toSMT(u))
@@ -754,7 +753,7 @@ trait SMTLIBTarget extends Interruptible {
 
       case (SNumeral(n), Some(RealType)) =>
         FractionalLiteral(n, 1)
-
+      
       case (FunctionApplication(SimpleSymbol(SSymbol("ite")), Seq(cond, thenn, elze)), t) =>
         IfExpr(
           fromSMT(cond, Some(BooleanType)),
@@ -803,11 +802,13 @@ trait SMTLIBTarget extends Interruptible {
             val rargs = args.zip(tt.bases).map(fromSMT)
             tupleWrap(rargs)
 
-          case ArrayType(baseType) =>
+          case at@ArrayType(baseType) =>
             val IntLiteral(size) = fromSMT(args(0), Int32Type)
             val RawArrayValue(_, elems, default) = fromSMT(args(1), RawArrayType(Int32Type, baseType))
 
-            if (size > 10) {
+            if (size < 0) {
+              unsupported(at, "Cannot build an array of negative length: " + size)
+            } else if (size > 10) {
               val definedElements = elems.collect {
                 case (IntLiteral(i), value) => (i, value)
               }
